@@ -11,14 +11,11 @@ void Bot::printBotInput() {
     std::cout << "advisorbot> ";
 };
 
-void Bot::init() {
+[[noreturn]] void Bot::init() {
     std::string input;
     currentTime = orderBook.getEarliestTime();
 
-    wallet.insertCurrency("BTC", 10);
-
     while (true) {
-//        printMenu();
         input = getUserInput();
         processUserInput(input);
     }
@@ -41,135 +38,180 @@ void Bot::printHelpForCommand(Commands command) {
     }
 }
 
-void Bot::printMenu() {
-    // 1 print help
-    std::cout << "1: Print help " << std::endl;
-    // 2 print exchange stats
-    std::cout << "2: Print exchange stats" << std::endl;
-    // 3 make an offer
-    std::cout << "3: Make an offer " << std::endl;
-    // 4 make a bid 
-    std::cout << "4: Make a bid " << std::endl;
-    // 5 print wallet
-    std::cout << "5: Print wallet " << std::endl;
-    // 6 continue   
-    std::cout << "6: Continue " << std::endl;
-
-    std::cout << "============== " << std::endl;
-
-    std::cout << "Current time is: " << currentTime << std::endl;
-}
-
-
-void Bot::printMarketStats() {
-    for (std::string const &p: orderBook.getKnownProducts()) {
-        std::cout << "Product: " << p << std::endl;
-        std::vector<OrderBookEntry> entries = orderBook.getOrders(OrderBookType::ask,
-                                                                  p, currentTime);
-        std::cout << "Asks seen: " << entries.size() << std::endl;
-        std::cout << "Max ask: " << OrderBook::getHighPrice(entries) << std::endl;
-        std::cout << "Min ask: " << OrderBook::getLowPrice(entries) << std::endl;
+// prod
+void Bot::printProducts() {
+    std::vector<std::string> products = orderBook.getKnownProducts();
+    for (std::string const &product: products) {
+        std::cout << product << " ";
     }
-    // std::cout << "OrderBook contains :  " << orders.size() << " entries" << std::endl;
-    // unsigned int bids = 0;
-    // unsigned int asks = 0;
-    // for (OrderBookEntry& e : orders)
-    // {
-    //     if (e.orderType == OrderBookType::ask)
-    //     {
-    //         asks ++;
-    //     }
-    //     if (e.orderType == OrderBookType::bid)
-    //     {
-    //         bids ++;
-    //     }  
-    // }    
-    // std::cout << "OrderBook asks:  " << asks << " bids:" << bids << std::endl;
-
+    std::cout << std::endl;
 }
 
-void Bot::enterAsk() {
-    std::cout << "Make an ask - enter the amount: product,price, amount, eg  ETH/BTC,200,0.5" << std::endl;
-    std::string input;
-    std::getline(std::cin, input);
+// min
+void Bot::printMin(const std::string &product, const std::string &orderType) {
+    if (!orderBook.isProductValid(product)) {
+        std::cout << "Invalid product. To get available products use prod command." << std::endl;
+        return;
+    }
+    OrderBookType orderTypeEnum = OrderBookEntry::stringToOrderBookType(orderType);
+    if (orderTypeEnum != OrderBookType::ask && orderTypeEnum != OrderBookType::bid) {
+        std::cout << "Invalid type. Should be ask or bid." << std::endl;
+        return;
+    }
+    std::vector<OrderBookEntry> entries = orderBook.getOrders(orderTypeEnum, product, currentTime, 1);
+    std::cout << "The min " << orderType << " for " << product << " is " << OrderBook::getLowPrice(entries)
+              << std::endl;
+}
 
-    std::vector<std::string> tokens = StringUtil::tokenize(input, ',');
-    if (tokens.size() != 3) {
-        std::cout << "Bot::enterAsk Bad input! " << input << std::endl;
-    } else {
-        try {
-            OrderBookEntry obe = CSVReader::stringsToOBE(
-                    tokens[1],
-                    tokens[2],
-                    currentTime,
-                    tokens[0],
-                    OrderBookType::ask
-            );
-            obe.username = "simuser";
-            if (wallet.canFulfillOrder(obe)) {
-                std::cout << "Wallet looks good. " << std::endl;
-                orderBook.insertOrder(obe);
-            } else {
-                std::cout << "Wallet has insufficient funds . " << std::endl;
-            }
-        } catch (const std::exception &e) {
-            std::cout << " Bot::enterAsk Bad input " << std::endl;
+// max
+void Bot::printMax(const std::string &product, const std::string &orderType) {
+    if (!orderBook.isProductValid(product)) {
+        std::cout << "Invalid product. To get available products use prod command." << std::endl;
+        return;
+    }
+    OrderBookType orderTypeEnum = OrderBookEntry::stringToOrderBookType(orderType);
+    if (orderTypeEnum != OrderBookType::ask && orderTypeEnum != OrderBookType::bid) {
+        std::cout << "Invalid type. Should be ask or bid." << std::endl;
+        return;
+    }
+    std::vector<OrderBookEntry> entries = orderBook.getOrders(orderTypeEnum, product, currentTime, 1);
+    std::cout << "The max " << orderType << " for " << product << " is " << OrderBook::getHighPrice(entries)
+              << std::endl;
+}
+
+// avg
+void Bot::printAvg(const std::string &product, const std::string &orderType, const std::string &periodStr) {
+    if (!orderBook.isProductValid(product)) {
+        std::cout << "Invalid product. To get available products use prod command." << std::endl;
+        return;
+    }
+    OrderBookType orderTypeEnum = OrderBookEntry::stringToOrderBookType(orderType);
+    if (orderTypeEnum != OrderBookType::ask && orderTypeEnum != OrderBookType::bid) {
+        std::cout << "Invalid type. Should be ask or bid." << std::endl;
+        return;
+    }
+    try {
+        const int period{std::stoi(periodStr)};
+        if (period < 1) {
+            std::cout << "Invalid period. Should be positive integer." << std::endl;
+            return;
         }
+        std::vector<OrderBookEntry> entries = orderBook.getOrders(orderTypeEnum, product, currentTime, period);
+        std::cout << "The average " << product << " " << orderType << " price over the last " << period
+                  << " timestamps was "
+                  << OrderBook::getAvgPrice(entries)
+                  << std::endl;
+    }
+    catch (std::invalid_argument const &ex) {
+        std::cout << "Invalid period. Should be positive integer." << std::endl;
+    }
+    catch (std::out_of_range const &ex) {
+        std::cout << "Invalid period. Should be positive integer." << std::endl;
     }
 }
 
-void Bot::enterBid() {
-    std::cout << "Make an bid - enter the amount: product,price, amount, eg  ETH/BTC,200,0.5" << std::endl;
-    std::string input;
-    std::getline(std::cin, input);
-
-    std::vector<std::string> tokens = StringUtil::tokenize(input, ',');
-    if (tokens.size() != 3) {
-        std::cout << "Bot::enterBid Bad input! " << input << std::endl;
-    } else {
-        try {
-            OrderBookEntry obe = CSVReader::stringsToOBE(
-                    tokens[1],
-                    tokens[2],
-                    currentTime,
-                    tokens[0],
-                    OrderBookType::bid
-            );
-            obe.username = "simuser";
-
-            if (wallet.canFulfillOrder(obe)) {
-                std::cout << "Wallet looks good. " << std::endl;
-                orderBook.insertOrder(obe);
-            } else {
-                std::cout << "Wallet has insufficient funds . " << std::endl;
-            }
-        } catch (const std::exception &e) {
-            std::cout << " Bot::enterBid Bad input " << std::endl;
+// mean
+void Bot::printMean(const std::string &product, const std::string &orderType, const std::string &periodStr) {
+    if (!orderBook.isProductValid(product)) {
+        std::cout << "Invalid product. To get available products use prod command." << std::endl;
+        return;
+    }
+    OrderBookType orderTypeEnum = OrderBookEntry::stringToOrderBookType(orderType);
+    if (orderTypeEnum != OrderBookType::ask && orderTypeEnum != OrderBookType::bid) {
+        std::cout << "Invalid orderType. Should be ask or bid." << std::endl;
+        return;
+    }
+    try {
+        const int period{std::stoi(periodStr)};
+        if (period < 1) {
+            std::cout << "Invalid period. Should be positive integer." << std::endl;
+            return;
         }
+        std::vector<OrderBookEntry> entries = orderBook.getOrders(orderTypeEnum, product, currentTime, period);
+        std::cout << "The mean " << product << " " << orderType << " price over the last " << period
+                  << " timestamps was "
+                  << OrderBook::getMeanPrice(entries)
+                  << std::endl;
+    }
+    catch (std::invalid_argument const &ex) {
+        std::cout << "Invalid period. Should be positive integer." << std::endl;
+    }
+    catch (std::out_of_range const &ex) {
+        std::cout << "Invalid period. Should be positive integer." << std::endl;
     }
 }
 
-void Bot::printWallet() {
-    std::cout << wallet.toString() << std::endl;
+// predict
+void Bot::printPredict(const std::string &product, const std::string &predictType, const std::string &orderType,
+                       const std::string &periodStr) {
+    if (!orderBook.isProductValid(product)) {
+        std::cout << "Invalid product. To get available products use prod command." << std::endl;
+        return;
+    }
+    OrderBookType orderTypeEnum = OrderBookEntry::stringToOrderBookType(orderType);
+    if (orderTypeEnum != OrderBookType::ask && orderTypeEnum != OrderBookType::bid) {
+        std::cout << "Invalid orderType. Should be ask or bid." << std::endl;
+        return;
+    }
+    if (predictType != "min" && predictType != "max") {
+        std::cout << "Invalid predictType. Should be min or max." << std::endl;
+        return;
+    }
+    try {
+        const int period{std::stoi(periodStr)};
+        if (period < 1) {
+            std::cout << "Invalid period. Should be positive integer." << std::endl;
+            return;
+        }
+        std::vector<OrderBookEntry> entries = orderBook.getOrders(orderTypeEnum, product, currentTime, period);
+        double prediction;
+        if (predictType == "min") {
+            prediction = orderBook.getMeanMinPrice(entries);
+        } else {
+            prediction = orderBook.getMeanMaxPrice(entries);
+        }
+        std::cout << "The prediction of " << predictType << " " << product << " " << orderType
+                  << " price over the last " << period
+                  << " timestamps is "
+                  << prediction
+                  << std::endl;
+    }
+    catch (std::invalid_argument const &ex) {
+        std::cout << "Invalid period. Should be positive integer." << std::endl;
+    }
+    catch (std::out_of_range const &ex) {
+        std::cout << "Invalid period. Should be positive integer." << std::endl;
+    }
 }
 
+// time
+void Bot::printTime() {
+    std::cout << currentTime << std::endl;
+}
+
+// step
 void Bot::gotoNextTimeframe() {
-    std::cout << "Going to next time frame. " << std::endl;
-    for (std::string p: orderBook.getKnownProducts()) {
-        std::cout << "matching " << p << std::endl;
-        std::vector<OrderBookEntry> sales = orderBook.matchAsksToBids(p, currentTime);
-        std::cout << "Sales: " << sales.size() << std::endl;
-        for (OrderBookEntry &sale: sales) {
-            std::cout << "Sale price: " << sale.price << " amount " << sale.amount << std::endl;
-            if (sale.username == "simuser") {
-                // update the wallet
-                wallet.processSale(sale);
-            }
-        }
-
-    }
-
     currentTime = orderBook.getNextTime(currentTime);
+    std::cout << "now at " << currentTime << std::endl;
+}
+
+// step <jump>
+void Bot::gotoNextTimeframe(const std::string &jumpStr) {
+    try {
+        const int jump{std::stoi(jumpStr)};
+        if (jump < 1) {
+            std::cout << "Invalid jump. Should be positive integer." << std::endl;
+            return;
+        }
+        currentTime = orderBook.getNextTime(currentTime, jump);
+        std::cout << "now at " << currentTime << std::endl;
+    }
+    catch (std::invalid_argument const &ex) {
+        std::cout << "Invalid jump. Should be positive integer." << std::endl;
+    }
+    catch (std::out_of_range const &ex) {
+        std::cout << "Invalid jump. Should be positive integer." << std::endl;
+    }
 }
 
 void Bot::printInputInvalid() {
@@ -196,11 +238,76 @@ void Bot::processUserInput(const std::string &userInput) {
         case Commands::Help:
             if (userInputTokenized.size() == 1) {
                 printHelp();
-            } else if (userInputTokenized.size() == 2) {
-                printHelpForCommand(resolveCommand(userInputTokenized[1]));
-            } else {
-                std::cout << "Command help can be used without arguments or only with one argument" << std::endl;
+                break;
             }
+            if (userInputTokenized.size() == 2) {
+                printHelpForCommand(resolveCommand(userInputTokenized[1]));
+                break;
+            }
+            std::cout << "Command help can be used without arguments or only with one argument" << std::endl;
+            break;
+        case Commands::Prod:
+            if (userInputTokenized.size() == 1) {
+                printProducts();
+                break;
+            }
+            std::cout << "Command prod should be used without arguments" << std::endl;
+            break;
+        case Commands::Min:
+            if (userInputTokenized.size() == 3) {
+                printMin(userInputTokenized[1], userInputTokenized[2]);
+                break;
+            }
+            std::cout << "Command min should be used with 2 arguments. Example: min ETH/BTC ask" << std::endl;
+            break;
+        case Commands::Max:
+            if (userInputTokenized.size() == 3) {
+                printMax(userInputTokenized[1], userInputTokenized[2]);
+                break;
+            }
+            std::cout << "Command max should be used with 2 arguments. Example: max ETH/BTC ask" << std::endl;
+            break;
+        case Commands::Avg:
+            if (userInputTokenized.size() == 4) {
+                printAvg(userInputTokenized[1], userInputTokenized[2], userInputTokenized[3]);
+                break;
+            }
+            std::cout << "Command avg should be used with 3 arguments. Example: avg ETH/BTC ask 10" << std::endl;
+            break;
+        case Commands::Mean:
+            if (userInputTokenized.size() == 4) {
+                printMean(userInputTokenized[1], userInputTokenized[2], userInputTokenized[3]);
+                break;
+            }
+            std::cout << "Command mean should be used with 3 arguments. Example: mean ETH/BTC ask 10" << std::endl;
+            break;
+        case Commands::Predict:
+            if (userInputTokenized.size() == 5) {
+                printPredict(userInputTokenized[2], userInputTokenized[1], userInputTokenized[3],
+                             userInputTokenized[4]);
+                break;
+            }
+            std::cout << "Command predict should be used with 4 arguments. Example: predict max ETH/BTC ask 10"
+                      << std::endl;
+            break;
+        case Commands::Time:
+            if (userInputTokenized.size() == 1) {
+                printTime();
+                break;
+            }
+            std::cout << "Command time should be used without arguments" << std::endl;
+            break;
+        case Commands::Step:
+            if (userInputTokenized.size() == 1) {
+                gotoNextTimeframe();
+                break;
+            }
+            if (userInputTokenized.size() == 2) {
+                gotoNextTimeframe(userInputTokenized[1]);
+                break;
+            }
+            std::cout << "Command step should be used without arguments or with 1 argument. Example: step 5"
+                      << std::endl;
             break;
         case Commands::Exit:
             std::cout << "Bye!" << std::endl;
@@ -212,6 +319,14 @@ void Bot::processUserInput(const std::string &userInput) {
 
 Commands Bot::resolveCommand(const std::string &command) {
     if (command == "help") return Commands::Help;
+    if (command == "prod") return Commands::Prod;
+    if (command == "min") return Commands::Min;
+    if (command == "max") return Commands::Max;
+    if (command == "avg") return Commands::Avg;
+    if (command == "mean") return Commands::Mean;
+    if (command == "predict") return Commands::Predict;
+    if (command == "time") return Commands::Time;
+    if (command == "step") return Commands::Step;
     if (command == "exit") return Commands::Exit;
 
     return Commands::Invalid;

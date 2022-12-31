@@ -2,48 +2,173 @@
 #include "CSVReader.h"
 #include <map>
 #include <algorithm>
-#include <iostream>
 
 /** construct, reading a csv data file */
 OrderBook::OrderBook(const std::string &filename) {
     orders = CSVReader::readCSV(filename);
+
+    // Sort order to be sure that time order is right
+    std::sort(orders.begin(), orders.end(), OrderBookEntry::compareByTimestamp);
+
+    // Fill products set
+    for (OrderBookEntry &order: orders) {
+        products.insert(order.product);
+    }
 }
 
 /** return vector of all know products in the dataset*/
 std::vector<std::string> OrderBook::getKnownProducts() {
-    std::vector<std::string> products;
+    std::vector<std::string> productsVector(products.begin(), products.end());
+    return productsVector;
+}
 
-    std::map<std::string, bool> prodMap;
-
-    for (OrderBookEntry &e: orders) {
-        prodMap[e.product] = true;
-    }
-
-    // now flatten the map to a vector of strings
-    for (auto const &e: prodMap) {
-        products.push_back(e.first);
-    }
-
-    return products;
+/** check is product valid or not */
+bool OrderBook::isProductValid(const std::string &product) {
+    return products.find(product) != products.end();
 }
 
 /** return vector of Orders according to the sent filters*/
 std::vector<OrderBookEntry> OrderBook::getOrders(OrderBookType type,
                                                  const std::string &product,
-                                                 const std::string &timestamp) {
+                                                 const std::string &timestamp,
+                                                 int check_last) {
+    std::string current_timestamp = timestamp;
+    bool is_range_started = false;
     std::vector<OrderBookEntry> orders_sub;
-    for (OrderBookEntry &e: orders) {
+    // Loop in reverse order
+    for (auto it = orders.rbegin(); it != orders.rend(); ++it) {
+        OrderBookEntry e = *it;
+        // Just continue if this is wrong time
+        if (!is_range_started && e.timestamp != current_timestamp) {
+            continue;
+        }
+        // Start range if it's not started and timestamp is equal to current
+        if (!is_range_started && e.timestamp == current_timestamp) {
+            is_range_started = true;
+        }
+        // Change current_timestamp if we should check more than one
+        if (is_range_started && e.timestamp != current_timestamp && check_last > 0) {
+            current_timestamp = e.timestamp;
+            check_last--;
+        }
+        // Stop checking if we went out of range
+        if (is_range_started && e.timestamp != current_timestamp && check_last < 1) {
+            break;
+        }
+        // Add order to vector if it fits filters
         if (e.orderType == type &&
             e.product == product &&
-            e.timestamp == timestamp) {
+            e.timestamp == current_timestamp) {
             orders_sub.push_back(e);
         }
     }
     return orders_sub;
 }
 
+// Return average price
+double OrderBook::getAvgPrice(std::vector<OrderBookEntry> &orders) {
+    if (orders.empty()) return 0.0;
+    double sum = orders[0].price;
+    for (OrderBookEntry &e: orders) {
+        sum += e.price;
+    }
+    return sum / (double) orders.size();
+}
 
+// Return mean price
+double OrderBook::getMeanPrice(std::vector<OrderBookEntry> &orders) {
+    if (orders.empty()) return 0.0;
+    std::vector<double> prices = {};
+    for (OrderBookEntry &e: orders) {
+        prices.push_back(e.price);
+    }
+    // Sort prices
+    std::sort(prices.begin(), prices.end());
+
+    // If no prices - return 0.0
+    if (prices.empty()) {
+        return 0.0;
+    }
+    // If prices size is even - return average of middle elements
+    if (prices.size() % 2 == 0) {
+        int midIndex = (int) (prices.size() / 2);
+        return (prices[midIndex] + prices[midIndex - 1]) / 2;
+    }
+    // Return middle element
+    return *(prices.begin() + prices.size() / 2);
+}
+
+// Return mean of max prices in ord
+double OrderBook::getMeanMaxPrice(std::vector<OrderBookEntry> &orders) {
+    if (orders.empty()) return 0.0;
+    std::vector<double> prices = {};
+    std::string current_timestamp = orders[0].timestamp;
+    double current_max = orders[0].price;
+    for (OrderBookEntry &e: orders) {
+        // If this is next timestamp - push previous max to prices
+        if (e.timestamp != current_timestamp) {
+            prices.push_back(current_max);
+            current_max = e.price;
+            current_timestamp = e.timestamp;
+            continue;
+        }
+        if (e.price > current_max) current_max = e.price;
+    }
+    // Add last max price of timestamp
+    prices.push_back(current_max);
+    // Sort prices
+    std::sort(prices.begin(), prices.end());
+
+    // If no prices - return 0.0
+    if (prices.empty()) {
+        return 0.0;
+    }
+    // If prices size is even - return average of middle elements
+    if (prices.size() % 2 == 0) {
+        int midIndex = (int) (prices.size() / 2);
+        return (prices[midIndex] + prices[midIndex - 1]) / 2;
+    }
+    // Return middle element
+    return *(prices.begin() + prices.size() / 2);
+}
+
+// Return mean price
+double OrderBook::getMeanMinPrice(std::vector<OrderBookEntry> &orders) {
+    if (orders.empty()) return 0.0;
+    std::vector<double> prices = {};
+    std::string current_timestamp = orders[0].timestamp;
+    double current_min = orders[0].price;
+    for (OrderBookEntry &e: orders) {
+        // If this is next timestamp - push previous max to prices
+        if (e.timestamp != current_timestamp) {
+            prices.push_back(current_min);
+            current_min = e.price;
+            current_timestamp = e.timestamp;
+            continue;
+        }
+        if (e.price < current_min) current_min = e.price;
+    }
+    // Add last min price of timestamp
+    prices.push_back(current_min);
+    // Sort prices
+    std::sort(prices.begin(), prices.end());
+
+    // If no prices - return 0.0
+    if (prices.empty()) {
+        return 0.0;
+    }
+    // If prices size is even - return average of middle elements
+    if (prices.size() % 2 == 0) {
+        int midIndex = (int) (prices.size() / 2);
+        return (prices[midIndex] + prices[midIndex - 1]) / 2;
+    }
+    // Return middle element
+    return *(prices.begin() + prices.size() / 2);
+}
+
+// Return min price in provided orders
 double OrderBook::getHighPrice(std::vector<OrderBookEntry> &orders) {
+    if (orders.empty()) return 0.0;
     double max = orders[0].price;
     for (OrderBookEntry &e: orders) {
         if (e.price > max)max = e.price;
@@ -51,8 +176,9 @@ double OrderBook::getHighPrice(std::vector<OrderBookEntry> &orders) {
     return max;
 }
 
-
+// Return min price in provided orders
 double OrderBook::getLowPrice(std::vector<OrderBookEntry> &orders) {
+    if (orders.empty()) return 0.0;
     double min = orders[0].price;
     for (OrderBookEntry &e: orders) {
         if (e.price < min)min = e.price;
@@ -60,10 +186,28 @@ double OrderBook::getLowPrice(std::vector<OrderBookEntry> &orders) {
     return min;
 }
 
+// Return first timestamp of the orders
 std::string OrderBook::getEarliestTime() {
     return orders[0].timestamp;
 }
 
+// Return next timestamp from orders. If no next - return first one.
+std::string OrderBook::getPrevTime(const std::string &timestamp) {
+    std::string prev_timestamp;
+    for (auto it = orders.rbegin(); it != orders.rend(); ++it) {
+        OrderBookEntry e = *it;
+        if (e.timestamp < timestamp) {
+            prev_timestamp = e.timestamp;
+            break;
+        }
+    }
+    if (prev_timestamp.empty()) {
+        prev_timestamp = orders.back().timestamp;
+    }
+    return prev_timestamp;
+}
+
+// Return next timestamp from orders. If no next - return first one.
 std::string OrderBook::getNextTime(const std::string &timestamp) {
     std::string next_timestamp;
     for (OrderBookEntry &e: orders) {
@@ -73,117 +217,31 @@ std::string OrderBook::getNextTime(const std::string &timestamp) {
         }
     }
     if (next_timestamp.empty()) {
-        next_timestamp = orders[0].timestamp;
+        next_timestamp = getEarliestTime();
+    }
+    return next_timestamp;
+}
+
+// Return next timestamp from orders. If no next - return first one.
+std::string OrderBook::getNextTime(const std::string &timestamp, int jump) {
+    std::string next_timestamp;
+    for (OrderBookEntry &e: orders) {
+        if (e.timestamp > timestamp) {
+            next_timestamp = e.timestamp;
+            jump--;
+        }
+        if (jump < 1) {
+            break;
+        }
+    }
+    if (next_timestamp.empty()) {
+        next_timestamp = getEarliestTime();
     }
     return next_timestamp;
 }
 
 void OrderBook::insertOrder(OrderBookEntry &order) {
+    products.insert(order.product);
     orders.push_back(order);
     std::sort(orders.begin(), orders.end(), OrderBookEntry::compareByTimestamp);
-}
-
-std::vector<OrderBookEntry> OrderBook::matchAsksToBids(const std::string &product, const std::string &timestamp) {
-// asks = orderbook.asks
-    std::vector<OrderBookEntry> asks = getOrders(OrderBookType::ask,
-                                                 product,
-                                                 timestamp);
-// bids = orderbook.bids
-    std::vector<OrderBookEntry> bids = getOrders(OrderBookType::bid,
-                                                 product,
-                                                 timestamp);
-
-    // sales = []
-    std::vector<OrderBookEntry> sales;
-
-    // I put in a little check to ensure we have bids and asks
-    // to process.
-    if (asks.size() == 0 || bids.size() == 0) {
-        std::cout << " OrderBook::matchAsksToBids no bids or asks" << std::endl;
-        return sales;
-    }
-
-    // sort asks. The lowest first
-    std::sort(asks.begin(), asks.end(), OrderBookEntry::compareByPriceAsc);
-    // sort bids. The highest first
-    std::sort(bids.begin(), bids.end(), OrderBookEntry::compareByPriceDesc);
-    // for ask in asks:
-    std::cout << "max ask " << asks[asks.size() - 1].price << std::endl;
-    std::cout << "min ask " << asks[0].price << std::endl;
-    std::cout << "max bid " << bids[0].price << std::endl;
-    std::cout << "min bid " << bids[bids.size() - 1].price << std::endl;
-
-    for (OrderBookEntry &ask: asks) {
-        //     for bid in bids:
-        for (OrderBookEntry &bid: bids) {
-            //         if bid.price >= ask.price # we have a match
-            if (bid.price >= ask.price) {
-                //             sale = new order()
-                //             sale.price = ask.price
-                OrderBookEntry sale{ask.price, 0, timestamp,
-                                    product,
-                                    OrderBookType::asksale};
-
-                if (bid.username == "simuser") {
-                    sale.username = "simuser";
-                    sale.orderType = OrderBookType::bidsale;
-                }
-                if (ask.username == "simuser") {
-                    sale.username = "simuser";
-                    sale.orderType = OrderBookType::asksale;
-                }
-
-                //             # now work out how much was sold and
-                //             # create new bids and asks covering
-                //             # anything that was not sold
-                //             if bid.amount == ask.amount: # bid completely clears ask
-                if (bid.amount == ask.amount) {
-                    //                 sale.amount = ask.amount
-                    sale.amount = ask.amount;
-                    //                 sales.append(sale)
-                    sales.push_back(sale);
-                    //                 bid.amount = 0 # make sure the bid is not processed again
-                    bid.amount = 0;
-                    //                 # can do no more with this ask
-                    //                 # go onto the next ask
-                    //                 break
-                    break;
-                }
-                //           if bid.amount > ask.amount:  # ask is completely gone slice the bid
-                if (bid.amount > ask.amount) {
-                    //                 sale.amount = ask.amount
-                    sale.amount = ask.amount;
-                    //                 sales.append(sale)
-                    sales.push_back(sale);
-                    //                 # we adjust the bid in place
-                    //                 # so it can be used to process the next ask
-                    //                 bid.amount = bid.amount - ask.amount
-                    bid.amount = bid.amount - ask.amount;
-                    //                 # ask is completely gone, so go to next ask
-                    //                 break
-                    break;
-                }
-
-
-                //             if bid.amount < ask.amount # bid is completely gone, slice the ask
-                if (bid.amount < ask.amount &&
-                    bid.amount > 0) {
-                    //                 sale.amount = bid.amount
-                    sale.amount = bid.amount;
-                    //                 sales.append(sale)
-                    sales.push_back(sale);
-                    //                 # update the ask
-                    //                 # and allow further bids to process the remaining amount
-                    //                 ask.amount = ask.amount - bid.amount
-                    ask.amount = ask.amount - bid.amount;
-                    //                 bid.amount = 0 # make sure the bid is not processed again
-                    bid.amount = 0;
-                    //                 # some ask remains so go to the next bid
-                    //                 continue
-                    continue;
-                }
-            }
-        }
-    }
-    return sales;
 }
