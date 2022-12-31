@@ -17,4 +17,7 @@ add_executable(Midterm_Project
         OrderBook.h
         OrderBookEntry.cpp
         OrderBookEntry.h
-        StringUtil.h StringUtil.cpp)
+        StringUtil.h
+        StringUtil.cpp
+        MathHelper.cpp
+        MathHelper.h)

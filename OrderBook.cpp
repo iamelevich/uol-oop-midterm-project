@@ -1,5 +1,6 @@
 #include "OrderBook.h"
 #include "CSVReader.h"
+#include "MathHelper.h"
 #include <map>
 #include <algorithm>
 
@@ -82,20 +83,7 @@ double OrderBook::getMeanPrice(std::vector<OrderBookEntry> &orders) {
     for (OrderBookEntry &e: orders) {
         prices.push_back(e.price);
     }
-    // Sort prices
-    std::sort(prices.begin(), prices.end());
-
-    // If no prices - return 0.0
-    if (prices.empty()) {
-        return 0.0;
-    }
-    // If prices size is even - return average of middle elements
-    if (prices.size() % 2 == 0) {
-        int midIndex = (int) (prices.size() / 2);
-        return (prices[midIndex] + prices[midIndex - 1]) / 2;
-    }
-    // Return middle element
-    return *(prices.begin() + prices.size() / 2);
+    return MathHelper::mean(prices);
 }
 
 // Return mean of max prices in ord
@@ -116,20 +104,8 @@ double OrderBook::getMeanMaxPrice(std::vector<OrderBookEntry> &orders) {
     }
     // Add last max price of timestamp
     prices.push_back(current_max);
-    // Sort prices
-    std::sort(prices.begin(), prices.end());
 
-    // If no prices - return 0.0
-    if (prices.empty()) {
-        return 0.0;
-    }
-    // If prices size is even - return average of middle elements
-    if (prices.size() % 2 == 0) {
-        int midIndex = (int) (prices.size() / 2);
-        return (prices[midIndex] + prices[midIndex - 1]) / 2;
-    }
-    // Return middle element
-    return *(prices.begin() + prices.size() / 2);
+    return MathHelper::mean(prices);
 }
 
 // Return mean price
@@ -150,20 +126,8 @@ double OrderBook::getMeanMinPrice(std::vector<OrderBookEntry> &orders) {
     }
     // Add last min price of timestamp
     prices.push_back(current_min);
-    // Sort prices
-    std::sort(prices.begin(), prices.end());
 
-    // If no prices - return 0.0
-    if (prices.empty()) {
-        return 0.0;
-    }
-    // If prices size is even - return average of middle elements
-    if (prices.size() % 2 == 0) {
-        int midIndex = (int) (prices.size() / 2);
-        return (prices[midIndex] + prices[midIndex - 1]) / 2;
-    }
-    // Return middle element
-    return *(prices.begin() + prices.size() / 2);
+    return MathHelper::mean(prices);
 }
 
 // Return min price in provided orders
