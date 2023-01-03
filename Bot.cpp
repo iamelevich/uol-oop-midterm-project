@@ -23,7 +23,7 @@ void Bot::printBotInput() {
 
 // help
 void Bot::printHelp() {
-    std::cout << "The available commands are help, help <cmd>, prod, min, max, avg, predict, time, step, exit"
+    std::cout << "Commands: help, help <cmd>, prod, min, max, avg, mean, predict, time, step, step <jump>, exit"
               << std::endl;
 }
 
@@ -50,7 +50,7 @@ void Bot::printHelpForCommand(Commands command) {
             std::cout
                     << "Print max price for product in current time."
                     << std::endl
-                    << "  min <product> <type>"
+                    << "  max <product> <type>"
                     << std::endl
                     << "    <product> - Any of available products. You can find available by prod command"
                     << std::endl
