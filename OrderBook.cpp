@@ -188,9 +188,9 @@ std::string OrderBook::getNextTime(const std::string &timestamp) {
 
 // Return next timestamp from orders. If no next - return first one.
 std::string OrderBook::getNextTime(const std::string &timestamp, int jump) {
-    std::string next_timestamp;
+    std::string next_timestamp = timestamp;
     for (OrderBookEntry &e: orders) {
-        if (e.timestamp > timestamp) {
+        if (e.timestamp > next_timestamp) {
             next_timestamp = e.timestamp;
             jump--;
         }

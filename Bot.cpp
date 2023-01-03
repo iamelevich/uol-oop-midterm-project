@@ -30,6 +30,97 @@ void Bot::printHelp() {
 // help <cmd>
 void Bot::printHelpForCommand(Commands command) {
     switch (command) {
+        case Commands::Prod:
+            std::cout << "Print list of available products. No arguments needed." << std::endl;
+            break;
+        case Commands::Min:
+            std::cout
+                    << "Print min price for product in current time."
+                    << std::endl
+                    << "  min <product> <type>"
+                    << std::endl
+                    << "    <product> - Any of available products. You can find available by prod command"
+                    << std::endl
+                    << "    <type> - bid/ask"
+                    << std::endl
+                    << "  Example: min ETH/BTC ask"
+                    << std::endl;
+            break;
+        case Commands::Max:
+            std::cout
+                    << "Print max price for product in current time."
+                    << std::endl
+                    << "  min <product> <type>"
+                    << std::endl
+                    << "    <product> - Any of available products. You can find available by prod command"
+                    << std::endl
+                    << "    <type> - bid/ask"
+                    << std::endl
+                    << "  Example: max ETH/BTC ask"
+                    << std::endl;
+            break;
+        case Commands::Avg:
+            std::cout
+                    << "Compute average ask or bid for the sent product over the sent number of time steps."
+                    << std::endl
+                    << "  avg <product> <type> <timestamps>"
+                    << std::endl
+                    << "    <product> - Any of available products. You can find available by prod command"
+                    << std::endl
+                    << "    <type> - bid/ask"
+                    << std::endl
+                    << "    <timestamps> - number of last timestamps to check"
+                    << std::endl
+                    << "  Example: avg ETH/BTC ask 10"
+                    << std::endl;
+            break;
+        case Commands::Mean:
+            std::cout
+                    << "Compute mean ask or bid for the sent product over the sent number of time steps."
+                    << std::endl
+                    << "  mean <product> <type> <timestamps>"
+                    << std::endl
+                    << "    <product> - Any of available products. You can find available by prod command"
+                    << std::endl
+                    << "    <type> - bid/ask"
+                    << std::endl
+                    << "    <timestamps> - number of last timestamps to check"
+                    << std::endl
+                    << "  Example: mean ETH/BTC ask 10"
+                    << std::endl;
+            break;
+        case Commands::Predict:
+            std::cout
+                    << "Predict max or min ask or bid for the sent product for the next time step using running median."
+                    << std::endl
+                    << "  predict <predict> <product> <type> <timestamps>"
+                    << std::endl
+                    << "    <predict> - What need to predict. min/max"
+                    << std::endl
+                    << "    <product> - Any of available products. You can find available by prod command"
+                    << std::endl
+                    << "    <type> - bid/ask"
+                    << std::endl
+                    << "    <timestamps> - number of last timestamps to check"
+                    << std::endl
+                    << "  Example: predict min ETH/BTC ask 10"
+                    << std::endl;
+            break;
+        case Commands::Time:
+            std::cout << "Print current time step. No arguments needed." << std::endl;
+            break;
+        case Commands::Step:
+            std::cout << "Go to the next timestamp or skip some of them. Can be used with one or none arguments."
+                      << std::endl
+                      << "  Example: step"
+                      << std::endl
+                      << "    to go to the next time step"
+                      << std::endl
+                      << "  Example: step 10"
+                      << std::endl
+                      << "    to go to the 10th time step from current"
+                      << std::endl;
+            break;
         case Commands::Exit:
             std::cout << "Exit from the bot. No arguments needed" << std::endl;
             break;
