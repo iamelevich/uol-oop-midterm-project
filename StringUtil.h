@@ -10,6 +10,10 @@
 class StringUtil {
 public:
     static std::vector<std::string> tokenize(const std::string &line, char separator);
+
+    static std::vector<std::string_view> tokenize(std::string_view str, char separator);
+
+    static std::vector<std::string_view> splitLines(std::string_view str);
 };
 
 #endif //MIDTERM_PROJECT_STRINGUTIL_H

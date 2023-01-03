@@ -50,8 +50,6 @@ public:
 
     static double getMeanMinPrice(std::vector<OrderBookEntry> &orders);
 
-    void insertOrder(OrderBookEntry &order);
-
 private:
     std::vector<OrderBookEntry> orders;
     std::set<std::string> products;

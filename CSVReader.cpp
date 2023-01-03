@@ -5,6 +5,7 @@
 #include <fstream>
 #include <utility>
 #include <chrono>
+#include <filesystem>
 
 using namespace std::chrono;
 
@@ -19,23 +20,26 @@ std::vector<OrderBookEntry> CSVReader::readCSV(const std::string &csvFilename) {
 
     std::vector<OrderBookEntry> entries;
 
-    std::ifstream csvFile{csvFilename};
-    std::string line;
-    if (csvFile.is_open()) {
-        while (std::getline(csvFile, line)) {
-            try {
-                OrderBookEntry obe = stringsToOBE(StringUtil::tokenize(line, ','));
-                entries.push_back(obe);
-            } catch (const std::exception &e) {
-                Bot::printBotInput();
-                std::cout << "CSVReader::readCSV bad data" << std::endl;
-            }
-        }// end of while
-    } else {
+    std::ifstream csvFile{csvFilename, std::ios::in | std::ios::binary};
+    if (!csvFile) {
         Bot::printBotInput();
         std::cout << "CSVReader::readCSV can't open file " << csvFilename << std::endl;
         exit(1);
     }
+    std::string fileContent(static_cast<size_t>(std::filesystem::file_size(csvFilename)), 0);
+    csvFile.read(fileContent.data(), fileContent.size());
+    if (!csvFile) {
+        Bot::printBotInput();
+        std::cout << "CSVReader::readCSV could not read the full contents from " << csvFilename << std::endl;
+        exit(1);
+    }
+    // Split file content to lines
+    std::vector<std::string_view> lines = StringUtil::splitLines(fileContent);
+
+    // Process lines and update entries vector.
+    // Wanted to use std::execution::par here, but clang still doesn't support it.
+    std::transform(lines.begin(), lines.end(),
+                   std::back_inserter(entries), lineToOBE);
 
     // Stop execution measurement
     auto stop = high_resolution_clock::now();
@@ -47,20 +51,24 @@ std::vector<OrderBookEntry> CSVReader::readCSV(const std::string &csvFilename) {
     return entries;
 }
 
-OrderBookEntry CSVReader::stringsToOBE(std::vector<std::string> tokens) {
+OrderBookEntry CSVReader::lineToOBE(std::string_view line) {
+    return stringsToOBE(StringUtil::tokenize(line, ','));
+}
+
+OrderBookEntry CSVReader::stringsToOBE(std::vector<std::string_view> tokens) {
     double price, amount;
 
     if (tokens.size() != 5) // bad
     {
         std::cout << "Bad line ";
-        std::copy(tokens.begin(), tokens.end(), std::ostream_iterator<std::string>(std::cout, ","));
+        std::copy(tokens.begin(), tokens.end(), std::ostream_iterator<std::string_view>(std::cout, ","));
         std::cout << std::endl;
         throw std::exception{};
     }
     // we have 5 tokens
     try {
-        price = std::stod(tokens[3]);
-        amount = std::stod(tokens[4]);
+        price = std::stod(std::string(tokens[3]));
+        amount = std::stod(std::string(tokens[4]));
     } catch (const std::exception &e) {
         Bot::printBotInput();
         std::cout << "CSVReader::stringsToOBE Bad float! " << tokens[3] << std::endl;
@@ -71,35 +79,9 @@ OrderBookEntry CSVReader::stringsToOBE(std::vector<std::string> tokens) {
 
     OrderBookEntry obe{price,
                        amount,
-                       tokens[0],
-                       tokens[1],
-                       OrderBookEntry::stringToOrderBookType(tokens[2])};
-
-    return obe;
-}
-
-
-OrderBookEntry CSVReader::stringsToOBE(const std::string &priceString,
-                                       const std::string &amountString,
-                                       std::string timestamp,
-                                       std::string product,
-                                       OrderBookType orderType) {
-    double price, amount;
-    try {
-        price = std::stod(priceString);
-        amount = std::stod(amountString);
-    } catch (const std::exception &e) {
-        Bot::printBotInput();
-        std::cout << "CSVReader::stringsToOBE Bad float! " << priceString << std::endl;
-        Bot::printBotInput();
-        std::cout << "CSVReader::stringsToOBE Bad float! " << amountString << std::endl;
-        throw;
-    }
-    OrderBookEntry obe{price,
-                       amount,
-                       std::move(timestamp),
-                       std::move(product),
-                       orderType};
+                       std::string(tokens[0]),
+                       std::string(tokens[1]),
+                       OrderBookEntry::stringToOrderBookType(std::string(tokens[2]))};
 
     return obe;
 }

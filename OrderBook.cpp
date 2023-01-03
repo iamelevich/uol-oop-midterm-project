@@ -203,9 +203,3 @@ std::string OrderBook::getNextTime(const std::string &timestamp, int jump) {
     }
     return next_timestamp;
 }
-
-void OrderBook::insertOrder(OrderBookEntry &order) {
-    products.insert(order.product);
-    orders.push_back(order);
-    std::sort(orders.begin(), orders.end(), OrderBookEntry::compareByTimestamp);
-}

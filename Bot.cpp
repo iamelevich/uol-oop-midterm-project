@@ -170,9 +170,8 @@ void Bot::printPredict(const std::string &product, const std::string &predictTyp
         } else {
             prediction = orderBook.getMeanMaxPrice(entries);
         }
-        std::cout << "The prediction of " << predictType << " " << product << " " << orderType
-                  << " price over the last " << period
-                  << " timestamps is "
+        std::cout << "The " << predictType << " " << orderType << " for " << product
+                  << " might be "
                   << prediction
                   << std::endl;
     }

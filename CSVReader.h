@@ -11,12 +11,8 @@ public:
 
     static std::vector<OrderBookEntry> readCSV(const std::string &csvFile);
 
-    static OrderBookEntry stringsToOBE(const std::string &price,
-                                       const std::string &amount,
-                                       std::string timestamp,
-                                       std::string product,
-                                       OrderBookType OrderBookType);
-
 private:
-    static OrderBookEntry stringsToOBE(std::vector<std::string> strings);
+    static OrderBookEntry lineToOBE(std::string_view strings);
+
+    static OrderBookEntry stringsToOBE(std::vector<std::string_view> strings);
 };
